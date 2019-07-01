@@ -1,6 +1,3 @@
-//
-// Created by Tonny Mutumba on 2019-06-26.
-//
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +7,9 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <string.h>
+#include <assert.h>
+#include <errno.h>
+#include "eye2eh.c"
 
 /*how many childs to raise*/
 #define NUM_PROCS 5
@@ -17,7 +17,7 @@
 void handle_sigchld(int);
 
 
-int main(int argc, char **argv){
+int main(){
 
     int i;
 
@@ -37,31 +37,53 @@ int main(int argc, char **argv){
         if (!fork()){
             /* Child */
 
-            write("-> New child %d, will exit with SIGCHLD.\n", (int)getpid() );
-
+            WRITESTRING("SIGSTOPPING child\n")
+            assert(kill(fork(), SIGSTOP) == 0);
             sleep(2);
-            exit(0);
-        }
-        sleep(2);
-    }
 
-    write("parent: done with fork()ing.\n", more , more);
+            WRITESTRING("SIGSTARTING child\n")
+            assert(kill(fork(), SIGCONT) == 0);
+            sleep(2);
+        }
+        assert(kill(fork(), SIGINT) == 0);
+        pause();
+    }
+    return(0);
 }
 
-void handle_sigchld(int signal_num){
-    pid_t PID;
-    int child_status;
-    int call_num = 0;
+void handle_sigchld(int signal_num) {
 
-    /* getting the child's exit status*/
-    PID = waitpid(0, &child_status, 0);
-
-    printf("<- Child %d exited with status %d.\n", PID, WEXITSTATUS(child_status));
-
-    /*Get all the child*/
-    if (++call_num >= NUM_PROCS){
-        printf("I got all the childs this time. Going to exit.\n");
-        exit(0);
+    /* handle 1*/
+    if (signal_num == 2) {
+        //do nothing
     }
-    return;
+
+    if (signal_num == 17) {
+        //pid_t PID;
+        int child_status;
+
+        /* getting the child's exit status*/
+        assert((waitpid(-1, &child_status, 0)) != 0);
+
+        if (WIFSIGNALED(child_status)) {
+            int call_num = WTERMSIG(child_status);
+
+            WRITESTRING("SIGCHLD: Process")
+            WRITEINT(child_status, 7)
+
+            WRITESTRING(" exited with status: ")
+            WRITEINT(call_num, 2)
+
+            WRITESTRING("\n")
+        }
+    }
+
+    if (signal_num == 19) {
+        //do nothing
+    }
+
+    if (signal_num == 30) {
+        //do nothing
+    }
+    exit(0);
 }
